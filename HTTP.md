@@ -245,6 +245,87 @@ Solutions:
 
 #### 13 HTTP cache and proxy caching
 
-Cache-Control: If-Modified-Since/If-None-Match checks if the resources has been updated
-Updated: return with resource and 200 OK
-Not: return with 304, tell the browser to get resources directly from cache
+1. Cache-Control:
+   If-Modified-Since/If-None-Match checks if the resources has been updated
+
+   - Updated: return with resource and 200 OK
+   - Not: return with 304, tell the browser to get resources directly from cache
+
+2. Proxy-caching:
+   Obtaining the cache in origin server every time can pose too much pressure on it. Therefore, let proxy server take over a part of server-side http cache, then client can obtain cache from the closest proxy server until the cache in proxy expires.
+   Proxy caching is a feature of proxy servers that stores content on the proxy server itself, allowing web services to share those resources to more users. The proxy server coordinates with the source server to cache documents such as files, images and web pages.
+
+3. Cache control from origin server side
+
+   - Cache-Control: private (proxy caching not allowed) / public (proxy caching allowed)
+   - Cache-Control: must-revalidate (client cache expires -> obtain from origin server) / proxy-revalidate (proxy cache expires -> obtain from origin server)
+   - Cache-Control: s-maxage=2000 (cache is validate for 2000s in proxy, s for share. maxage indicates the validation time in client)
+
+4. Cache control from client side
+   - max-stale:5 when cache in proxy expires for less than 5s, still get from proxy
+   - min-fresh:5 get cache from proxy until 5s before expiration
+   - only-if-cached only gets cache from proxy but not origin server. if no valid cache from proxy, returns 504 Gateway Timeout
+
+#### 14 Cross-Origin
+
+1. cross-origin
+   In two URI, if scheme, host and port are not all the same, then they are not from the same origin.
+   They can't:
+
+- read and change each other's DOM
+- read each other's Cookie, IndexDB and LocalStorage
+- send XMLHttpRequest unlimitedly
+
+2. cross-origin request blocking
+   Cross-origin request is normally **blocked by browser**.
+
+   The process of browser (Chrome): render process, plugin process, browser process, GPU process, sandbox.
+
+   During render process (happens in separated sandboxes): xhr.send called, ajax ready to be sent
+
+   Render process cannot send ajax -> Inter Process Communication (IPC) -> send to Browser process who sends the request out -> server send a response back -> browser process finds out it's cross-origin without CORS header -> don't send the response body back to render process -> blocked
+
+I. CORS
+
+1. simple request:
+   - methods: GET, POST, HEAD
+   - in header: Accept, Accept-Language, Content-Language, Content-Type(with only application/x-www-form-urlencoded, multipart/form-data, text/plain)
+2. For simple request
+   - browser adds by default Origin: to clarify the origin of the request
+   - server responses with Access-Control-Allow-Origin: \*
+   - if Origin is not in Access-Control-Allow-Origin, then browser will block the response
+   - Access-Control-Allow-Credentials (boolean) is set to false by default, meaning it's not allowed to send Cookie. (If need cookie: add this in header and set to true & set xhr.withCredentials=true in Frontend)
+   - Access-Control-Expose-Headers : enable XMLHttpRequest object to get the value of this header with getResponseHeader() in frontend
+3. For preflighted request
+   - the browser first sends an HTTP request using the **OPTIONS method** to the resource on the other origin, in order to determine if the actual request is safe to send
+     - Access-Control-Request-Method: CORS use which http method (e.g. POST)
+     - Access-Control-Request-Headers: the header (a nonstandard useful header is X-PINGOTHER)
+   - the response for preflighted request
+     - Access-Control-Allow-Origin
+     - Access-Control-Allow-Methods
+     - Access-Control-Allow-Credentials
+     - Access-Control-Allow-Headers
+     - Access-Control-Max-Age
+   - the CORS response
+     if preflight request does not match the requirement of response header, then error & not sending CORS response
+     just like that of simple request
+
+II. JSONP
+
+JSONP stands for JSON with Padding.
+
+Requesting a file from another domain can cause problems, due to cross-domain policy. Requesting an external script from another domain does not have this problem. JSONP uses this advantage, and request files using the script tag instead of the XMLHttpRequest object.
+
+But only GET is supported
+
+III. Nginx: reverse proxy
+
+Reverse proxy gets the requests from client side and transfer them to other servers
+
+Nginx gives a middle uri with the same domain as client, then gets the response from a server and gives it back to the client
+
+#### 15 TLS1.2 handshake
+
+HTTPS = HTTP + SSL/TLS
+
+Secure Sockets Layer 3.1 = Transport Layer Security 1.0
