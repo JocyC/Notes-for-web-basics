@@ -327,5 +327,83 @@ Nginx gives a middle uri with the same domain as client, then gets the response 
 #### 15 TLS1.2 handshake
 
 HTTPS = HTTP + SSL/TLS
-
 Secure Sockets Layer 3.1 = Transport Layer Security 1.0
+
+Step 1: Client Hello
+Browser sends client_random, TLS version, Cipherlist
+
+- Cipherlist example: TLS_ECDHE_WITH_AES_128_GCM_SHA256
+  Use algorithm ECDHE to generate pre_random, 128 bit AES algorithm to crypt with mainstream GCM grouping method, then use SHA256 Secure Hash Algorithm to generate a short signiture to confirm the server is the true server
+  - A cryptographic hash, also often referred to as a “digest”, “fingerprint” or “signature”, is an almost perfectly unique string of characters that is generated from a separate piece of input text. SHA-256 generates a 256-bit (32-byte) signature.
+
+Step 2: Server Hello
+Server sends server_random, TLS version, Cipherlist, server certificate, server_params
+
+Step 3: Client validates and generate secret
+Client check if the certificate and signiture pass, if so then send client*params to server
+(client_params is for server to authenticate client)
+Then, Client calculate pre_random with ECDHE, passing in server_params and client_params
+Finally, with client_random, server_random and pre_random, \_secret* is calculated
+
+Step 4: Server generates secret
+Server uses ECDHE to calculate pre*random, then use the same method as client to generate \_secret*
+
+After Client gets _secret_, it sends a finishing message to the server, Server too.
+This finishing message includes _Change Cipher Spec_ (the following part is encrypted) and _Finished_ (a encrypted summary of data just sent for the other to validate)
+
+After both sides validate the messages, the handshake is over, then HTTP starts to transfer encrypted messages
+
+- ECDHE: TLS Flase Start - after the Client sends finishing message, it can directly send HTTP messages and save time
+
+#### 16 TLS 1.3 improvement
+
+1. Security enhanced
+   only keeps 5 cipherlist, in which:
+   - symmetric-key algorithm: AES and CHACHA20
+   - Grouping model: GCM and POLY1305
+   - Hash Digest Algorithm: SHA256 and SHA 384
+     The reason ECDHE takes the place of RSA (asymmetric key):
+
+- RSA was broken once
+- Forward Secrecy: ECDHE generates one-time key, even if decrypted, the history messages stay safe; RSA not
+
+2. Performance improvement
+   - 1-RTT handshake
+     Server can get client_params before validation of certificate in the first round of handshake
+   - Session-reuse
+   - Session ID
+     Server and Client both save the ID and key of session. Take too much memory on server side
+   - Session Ticket
+     Server sends Session Ticket to Client for it to save up. Decrypt the ticket on next connection, if it's not expired, then restore the previous session status. Need to renew key often
+   - PSK Pre-shared key (improvement -> 0-RTT)
+     Client sends application data with Session Ticket. Convenient, but increase security risk
+
+#### 17 HTTP/2 improvement on web performance
+
+1. Use HPACK algorithm for Stateful Header Compression
+2. Multiplexed streams
+   Earlier iterations of the HTTP protocol were capable of transmitting only one stream at a time along with some time delay between each stream transmission.
+   HTTP/2 changes have helped establish a new binary framing layer to addresses these concerns.
+   This layer allows client and server to disintegrate the HTTP payload into small, independent and manageable interleaved sequence of frames. This information is then reassembled at the other end.
+
+   Binary frame formats enable the exchange of multiple, concurrently open, independent bi-directional sequences without latency between successive streams:
+
+   - The parallel multiplexed requests and response do not block each other.
+   - A single TCP connection is used to ensure effective network resource utilization despite transmitting multiple data streams.
+   - No need to apply unnecessary optimization hacks such as image sprites, concatenation and domain sharding, among others – that compromise other areas of network performance.
+   - Reduced latency, faster web performance, better search engine rankings.
+   - Reduced OpEx and CapEx in running network and IT resources.
+
+3. Server Push
+   This capability allows the server to send additional cacheable information to the client that isn’t requested but is anticipated in future requests. This mechanism saves a request-respond round trip and reduces network latency.
+4. Binary Protocol
+   HTTP1.x used to process text commands to complete request-response cycles. HTTP/2 will use binary commands (in 1s and 0s) to execute the same tasks.
+   It is easier for the network to generate and parse frames available in binary.
+   This attribute eases complications with framing and simplifies implementation of commands that were confusingly intermixed due to commands containing text and optional spaces. The actual semantics remain unchanged.
+5. Stream prioritization
+   HTTP/2 implementation allows the client to provide preference to particular data streams. Stream prioritization works with Dependencies and Weight assigned to each stream.
+   - Effective network resource utilization.
+   - Reduced time to deliver primary content requests.
+   - Improved page load speed and end-user experience.
+   - Optimized data communication between client and server.
+   - Reduced negative effect of network latency concerns.
